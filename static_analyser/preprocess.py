@@ -2,7 +2,7 @@
 # ----- globals -----
 # -------------------
 
-DEBUG = True
+DEBUG = False
 debug_read1_file = '../debug_read1.cpp'
 debug_logs = '../debug.txt'
 
@@ -155,7 +155,10 @@ def strip_stuff(in_filepath:str,
                 strings:bool=True,
                 ppd_includes:bool=True,
                 ppd_defines:bool=True,
-                skip_newline:bool=False) -> None:
+                skip_newline:bool=False,
+                qt_macros=True) -> None:
+
+    QT_Macros = ['Q_OBJECT', 'Q_ENUM']
 
     clear_file(debug_logs)
     clear_file(debug_read1_file)
@@ -297,6 +300,16 @@ def strip_stuff(in_filepath:str,
                         debug(fin, 'false alarm -- resetting position')
                         setcurpos(fin, curpos)
                         write(fout, '#')
+
+                # possible qt enum
+                elif isalpha(c):
+                    word = c + extract_word(fin)
+
+                    if word in QT_Macros:
+                        if not qt_macros:
+                            write(fout, word)
+                    else:
+                        write(fout, word)
 
                 # meets no specified category
                 else:
