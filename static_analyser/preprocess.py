@@ -1,3 +1,11 @@
+# -------------------
+# ----- globals -----
+# -------------------
+
+DEBUG = True
+debug_read1_file = '../debug_read1.cpp'
+debug_logs = '../debug.txt'
+
 # -------------------------------
 # ----- character functions -----
 # -------------------------------
@@ -9,7 +17,7 @@ def ischar(c:str) -> bool:
 def isalpha(c:str) -> bool:
     if not ischar(c):
         return False
-    elif (ord('A') <= ord(c) <= ord('Z')) or (ord('a') <= ord(c) <= ord('z')) or c == '_':
+    elif ord('A') <= ord(c) <= ord('Z') or ord('a') <= ord(c) <= ord('z') or c == '_':
         return True
     else:
         return False
@@ -45,29 +53,48 @@ def iswhitespace(c:str) -> bool:
 # ----------------------------------
 
 import re
-from typing import List
+from typing import List, IO
 
-def getcurpos(fin) -> int:
+def getcurpos(fin:IO) -> int:
     return fin.tell()
 
 
-def setcurpos(fin, pos:int) -> None:
+def setcurpos(fin:IO, pos:int) -> None:
     fin.seek(pos)
 
 
 NOT_UTF_8 = '[?]'
 
 
-def read1(fin) -> str:
+def read1(fin:IO, debug:bool=DEBUG) -> str:
     try:
         c = fin.read(1)
     except:
         print('Warning: character unsupported by \'utf-8\' codec encountered.')
         c = NOT_UTF_8
+
+    if debug:
+        with open(debug_read1_file, 'a+') as debug:
+            debug.write(c)
+
     return c
 
 
-def peek1(fin) -> str:
+def debug(fin:IO, message:str, execute:bool=DEBUG) -> None:
+    if not execute:
+        return
+
+    curpos = getcurpos(fin)
+    with open(debug_logs, 'a+') as debug:
+        debug.write('[' + str(curpos) + '] : ' + message  + '\n')
+
+
+def clear_file(filepath:str) -> None:
+    with open(filepath, 'w+'):
+        pass
+
+
+def peek1(fin:IO) -> str:
     curpos = getcurpos(fin)
     try:
         c = fin.read(1)
@@ -78,12 +105,34 @@ def peek1(fin) -> str:
     return c
 
 
-def skip1(fin) -> None:
+def skip1(fin:IO) -> None:
     fin.read(1)
     return
 
 
-def write(fout, to_write:str) -> None:
+def skipwhitespaces(fin:IO) -> str:
+    whitespaces = ''
+    c = peek1(fin)
+
+    while iswhitespace(c):
+        whitespaces += c
+        read1(fin)
+        c = peek1(fin)
+
+    return whitespaces
+
+
+def extract_word(fin:IO) -> str:
+    word = ''
+    c = peek1(fin)
+    while isalnum(c):
+        word += c
+        read1(fin)
+        c = peek1(fin)
+    return word
+
+
+def write(fout:IO, to_write:str) -> None:
     fout.write(to_write)
 
 
@@ -99,40 +148,137 @@ def get_filename_from_path(filepath:str) -> str:
 # ----- function to pre-process the file -----
 # --------------------------------------------
 
-def strip_comments(in_filepath:str, out_filepath:str) -> None:
+def strip_stuff(in_filepath:str, 
+                out_filepath:str,
+                single_line_comments:bool=True,
+                multiline_comments:bool=True, 
+                strings:bool=True,
+                ppd_includes:bool=True,
+                ppd_defines:bool=True) -> None:
+
+    clear_file(debug_logs)
+    clear_file(debug_read1_file)
+
     with open(out_filepath, 'w+') as fout:
         with open(in_filepath) as fin:
             while True:
                 c = read1(fin)
                 if not c:
                     break
+                
+                # possible comment ahead
                 elif c == '/':
-                    c = read1(fin)
-                    if c == '/':                # single line comment
-                        while c != '\n':
+                    debug(fin, 'possible comment ahead')
+                    c = peek1(fin)
+
+                    # single line comment
+                    if c == '/':
+                        read1(fin)
+                        debug(fin, 'single line comment starts')
+                        
+                        if not single_line_comments:
+                            write(fout, '//')
+                        while c != '\n' and not not c:
                             c = read1(fin)
+                            if not single_line_comments:
+                                write(fout, c)
+                        debug(fin, 'single line comment ends')
                         write(fout, c)
-                    elif c == '*':              # multi-line comment
+
+                    # multi-line comment 
+                    elif c == '*':
+                        read1(fin)
+                        debug(fin, 'multiline comment starts')
+                        if not multiline_comments:
+                            write(fout, '/*')
                         while True:
                             c = read1(fin)
+                            if not multiline_comments:
+                                write(fout, c)
                             if c == '*':
                                 c = peek1(fin)
                                 if c == '/':
-                                    skip1(fin)
+                                    read1(fin)
+                                    if not multiline_comments:
+                                        write(fout, '*/')
+                                    debug(fin, 'multiline comment exited due to  */')
                                     break
+                                else:
+                                    if not multiline_comments:
+                                        write(fout, '*')
                             elif c == '\n':
                                 write(fout, c)
+                            elif not c:
+                                debug(fin, 'multiline comment exited due to EOF')
+                                break
+
+                    # false signal
                     else:
                         write(fout, '/' + c)
-                elif c == '"':                  # strings
-                    write(fout, c)
+
+                # string
+                elif c == '"':
+                    debug(fin, 'string starts')
+
+                    if not strings:
+                        write(fout, '"')
+                    
+                    debug(fin, 'entering infinite loop')
                     while True:
                         c = read1(fin)
-                        write(fout, c)
+                        if not strings:
+                            write(fout, c)
                         if c == '\\':
-                            write(fout, read1(fin))
+                            c = read1(fin)
+                            if not strings:
+                                write(fout, '\\' + c)
                         elif c == '"':
+                            if not strings:
+                                write(fout, '"')
+                            debug(fin, 'exiting infinite loop')
+                            debug(fin, 'string ends')
                             break
+                        elif not c:
+                            if not strings:
+                                write(fout, '"')
+                            debug(fin, 'exiting infinite loop')
+                            debug(fin, 'EOF')
+                            break
+                
+                # preprocessor directives
+                elif c == '#' and False:
+                    whitespaces = skipwhitespaces(fin)
+                    word = extract_word(fin)
+                    
+                    # include directive
+                    if word == 'include':
+                        if not ppd_includes:
+                            write(fout, '#' + whitespaces + 'include')
+                        while True:
+                            c = read1(fin)
+                            if c == '\\':
+                                c = read1(fin)
+                                if not ppd_includes:
+                                    write(fout, '\\' + c)
+                            elif c == '\n':
+                                write(fout, '\n')
+                                break
+
+                    # define directive
+                    elif word == 'define':
+                        if not ppd_defines:
+                            write(fout, '#' + whitespaces + 'define')
+                        while True:
+                            c = read1(fin)
+                            if c == '\\':
+                                c = read1(fin)
+                                if not ppd_defines:
+                                    write(fout, '\\' + c)
+                            elif c == '\n':
+                                write(fout, '\n')
+                                break
+
+                # meets no specified category
                 else:
                     write(fout, c)
 
