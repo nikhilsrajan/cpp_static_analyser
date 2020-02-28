@@ -154,7 +154,8 @@ def strip_stuff(in_filepath:str,
                 multiline_comments:bool=True, 
                 strings:bool=True,
                 ppd_includes:bool=True,
-                ppd_defines:bool=True) -> None:
+                ppd_defines:bool=True,
+                skip_newline:bool=False) -> None:
 
     clear_file(debug_logs)
     clear_file(debug_read1_file)
@@ -180,10 +181,11 @@ def strip_stuff(in_filepath:str,
                             write(fout, '//')
                         while c != '\n' and not not c:
                             c = read1(fin)
-                            if not single_line_comments:
+                            if c == '\n' and not skip_newline:
+                                write(fout, '\n')
+                            elif not single_line_comments:
                                 write(fout, c)
                         debug(fin, 'single line comment ends')
-                        write(fout, c)
 
                     # multi-line comment 
                     elif c == '*':
@@ -207,13 +209,15 @@ def strip_stuff(in_filepath:str,
                                     if not multiline_comments:
                                         write(fout, '*')
                             elif c == '\n':
-                                write(fout, c)
+                                if not skip_newline:
+                                    write(fout, c)
                             elif not c:
                                 debug(fin, 'multiline comment exited due to EOF')
                                 break
 
-                    # false signal
+                    # false alarm
                     else:
+                        debug(fin, 'false alarm')
                         write(fout, '/' + c)
 
                 # string
@@ -246,7 +250,11 @@ def strip_stuff(in_filepath:str,
                             break
                 
                 # preprocessor directives
-                elif c == '#' and False:
+                elif c == '#':
+                    debug(fin, 'possible preprocessor directive ahead')
+
+                    curpos = getcurpos(fin)
+
                     whitespaces = skipwhitespaces(fin)
                     word = extract_word(fin)
                     
@@ -261,8 +269,11 @@ def strip_stuff(in_filepath:str,
                                 if not ppd_includes:
                                     write(fout, '\\' + c)
                             elif c == '\n':
-                                write(fout, '\n')
+                                if not skip_newline:
+                                    write(fout, '\n')
                                 break
+                            elif not ppd_includes:
+                                write(fout, c)
 
                     # define directive
                     elif word == 'define':
@@ -275,8 +286,17 @@ def strip_stuff(in_filepath:str,
                                 if not ppd_defines:
                                     write(fout, '\\' + c)
                             elif c == '\n':
-                                write(fout, '\n')
+                                if not skip_newline:
+                                    write(fout, '\n')
                                 break
+                            elif not ppd_defines:
+                                write(fout, c)
+                    
+                    # false alarm
+                    else:
+                        debug(fin, 'false alarm -- resetting position')
+                        setcurpos(fin, curpos)
+                        write(fout, '#')
 
                 # meets no specified category
                 else:
