@@ -202,18 +202,28 @@ def strip_stuff(in_filepath:str,
                                 write(fout, c)
                             if c == '*':
                                 c = peek1(fin)
-                                if c == '/':
+                                if c == '/':    # /*
                                     read1(fin)
                                     if not multiline_comments:
                                         write(fout, '*/')
                                     debug(fin, 'multiline comment exited due to  */')
-                                    break
+                                    
+                                    # if there is newline right after multiline comment, ignore it
+                                    if skip_newline:
+                                        c = peek1(fin)
+                                        if c == '\n':
+                                            skip1(fin)
+                                    
+                                    break       # */
+                                
                                 else:
                                     if not multiline_comments:
                                         write(fout, '*')
+                            
                             elif c == '\n':
                                 if not skip_newline:
                                     write(fout, c)
+                            
                             elif not c:
                                 debug(fin, 'multiline comment exited due to EOF')
                                 break
