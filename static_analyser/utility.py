@@ -47,7 +47,7 @@ def iswhitespace(c:str) -> bool:
 # ----------------------------------
 
 import re
-from typing import List, IO
+from typing import List, IO, Any
 
 def getcurpos(fin:IO) -> int:
     return fin.tell()
@@ -71,13 +71,13 @@ def read1(fin:IO, debug:bool=DEBUG) -> str:
     return c
 
 
-def debug(fin:IO, message:str, execute:bool=DEBUG) -> None:
+def debug(fin:IO, message:Any, execute:bool=DEBUG) -> None:
     if not execute:
         return
 
     curpos = getcurpos(fin)
     with open(debug_logs, 'a+') as debug:
-        debug.write('[' + str(curpos) + '] : ' + message  + '\n')
+        debug.write('[' + str(curpos) + '] : ' + str(message)  + '\n')
 
 
 def clear_file(filepath:str) -> None:
@@ -111,6 +111,13 @@ def skipwhitespaces(fin:IO) -> str:
         c = peek1(fin)
 
     return whitespaces
+
+
+def skip1until(fin:IO, char:str) -> None:
+    c = peek1(fin)
+    while c != char:
+        skip1(fin)
+        c = peek1(fin)
 
 
 def extract_word(fin:IO) -> str:
