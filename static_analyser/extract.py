@@ -29,38 +29,47 @@ def queuepop(queue:list) -> Any:
         popped = queue.pop()
     return popped
 
+def normalise_spaces(string:str) -> str:
+    ''' normalise spaces '''
+    normalised = ''
+    prev_char = ''
+    for c in string:
+        if iswhitespace(c):
+            if prev_char == '':
+                pass
+            else:
+                prev_char = ' '
+        elif not isalnum(c):
+            normalised += c
+            prev_char = c
+        else:
+            if iswhitespace(prev_char):
+                normalised += ' '
+            normalised += c
+            prev_char = c
+
+    return normalised
 
 def clean_function_parameters(function_params:str) -> str:
-    ''' clean the function parameters string captured to meet a standard format '''
-    
-    cleaned_string = ''
-    ignore_next = False
-    capturing_type = False
-    whitespace_encountered = False
-    capturing_variable_name = False
+    ''' clean the function parameters string captured to meet a standard format
+        useful only in function declaration and definition. '''
+    comma_splits = function_params.split(',')
+    normalised_comma_splits = []
 
-    for index, c in enumerate(function_params):        
-        if isalnum(c) or capturing_type:
-            if whitespace_encountered:
-                capturing_type = False
-                capturing_variable_name = True
-            else:
-                capturing_type = True
-                cleaned_string += c
-        
-        elif (c == '*' or c == '&' or c == ':') and capturing_type:
-            cleaned_string += c
-        
-        elif iswhitespace(c) and capturing_type:
-            whitespace_encountered = True
-        
-        elif c == ',':
-            capturing_variable_name = False
+    for c_split in comma_splits:
+        normalised_comma_splits.append(normalise_spaces(c_split))
+
+    default_values_removed = []
+    for nc_split in normalised_comma_splits:
+        default_values_removed.append(nc_split.split('=')[0])
     
-    cleaned_string.pop()
+    variable_rms = []
+    for dv_rem in default_values_removed:
+        variable_rms.append(' '.join(dv_rem.split(' ')[0:-1]))
+    
+    cleaned_string = ', '.join(variable_rms)
 
     return cleaned_string
-
 
 def extract_cpp(in_filename:str):
     ''' Function to extract list of functions in a class
