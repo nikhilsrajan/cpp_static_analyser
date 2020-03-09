@@ -123,16 +123,15 @@ def strip_cpp(in_filepath:str,
                 # preprocessor directives
                 elif c == '#':
                     debug(fin, 'possible preprocessor directive ahead')
-
-                    curpos = getcurpos(fin)
-
                     whitespaces = skipwhitespaces(fin)
                     word = extract_word(fin)
                     
                     # include directive
                     if word == 'include':
+                        debug(fin, 'include directive')
                         if not ppd_includes:
                             write(fout, '#' + whitespaces + 'include')
+                        debug(fin, 'entering infinite loop')
                         while True:
                             c = read1(fin)
                             if c == '\\':
@@ -142,14 +141,22 @@ def strip_cpp(in_filepath:str,
                             elif c == '\n':
                                 if not skip_newline:
                                     write(fout, '\n')
+                                debug(fin, 'exiting infinite loop')
+                                debug(fin, 'newline')
                                 break
-                            elif not ppd_includes:
+                            elif not ppd_includes and c:
                                 write(fout, c)
+                            elif not c:
+                                debug(fin, 'exiting infinite loop')
+                                debug(fin, 'EOF')
+                                break
 
                     # define directive
                     elif word == 'define':
+                        debug(fin, 'define directive')
                         if not ppd_defines:
                             write(fout, '#' + whitespaces + 'define')
+                        debug(fin, 'entering infinite loop')
                         while True:
                             c = read1(fin)
                             if c == '\\':
@@ -159,15 +166,20 @@ def strip_cpp(in_filepath:str,
                             elif c == '\n':
                                 if not skip_newline:
                                     write(fout, '\n')
+                                debug(fin, 'exiting infinite loop')
+                                debug(fin, 'newline')
                                 break
-                            elif not ppd_defines:
+                            elif not ppd_defines and c:
                                 write(fout, c)
+                            elif not c:
+                                debug(fin, 'exiting infinite loop')
+                                debug(fin, 'EOF')
+                                break
                     
                     # false alarm
                     else:
                         debug(fin, 'false alarm -- resetting position')
-                        setcurpos(fin, curpos)
-                        write(fout, '#')
+                        write(fout, '#' + whitespaces + word)
 
                 # possible qt enum
                 elif isalpha(c):
