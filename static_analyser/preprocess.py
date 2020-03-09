@@ -106,7 +106,7 @@ def strip_cpp(in_filepath:str,
                         if c == '\\':
                             c = read1(fin)
                             if not strings:
-                                write(fout, '\\' + c)
+                                write(fout, c)
                         elif c == '"':
                             debug(fin, 'exiting infinite loop')
                             debug(fin, 'string ends')
