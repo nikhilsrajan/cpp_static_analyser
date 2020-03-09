@@ -108,14 +108,10 @@ def strip_cpp(in_filepath:str,
                             if not strings:
                                 write(fout, '\\' + c)
                         elif c == '"':
-                            if not strings:
-                                write(fout, '"')
                             debug(fin, 'exiting infinite loop')
                             debug(fin, 'string ends')
                             break
                         elif not c:
-                            if not strings:
-                                write(fout, '"')
                             debug(fin, 'exiting infinite loop')
                             debug(fin, 'EOF')
                             break
