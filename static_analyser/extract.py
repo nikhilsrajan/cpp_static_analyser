@@ -78,6 +78,7 @@ def extract_cpp(in_filename:str):
     namespace_stack = []
     class_stack = []
     block_count = 0
+    double_colon_push_count = 0
     
     extracts = dict()
     
@@ -113,7 +114,7 @@ def extract_cpp(in_filename:str):
                         ''' namespace word { ... '''
                         stackpush(fin, namespace_stack, word)
                 
-                elif word == 'class':
+                elif word == 'class' or word == 'struct':
                     skipwhitespaces(fin)
                     word = extract_word(fin)
                     skipwhitespaces(fin)
@@ -138,77 +139,75 @@ def extract_cpp(in_filename:str):
                     skipwhitespaces(fin)
                     c = read1(fin)
 
-                    if c == ':':
+                    if c == '(':
+                        ''' word ( '''
+                        function_name = word
+                        function_params = ''
+                        param_count = 1
+                        while param_count != 0:
+                            c = read1(fin)
+                            if c == '(':
+                                param_count += 1
+                            elif c == ')':
+                                param_count -= 1
+                            if param_count != 0:
+                                function_params += c
+                        function_params = clean_function_parameters(function_params)
+                        skipwhitespaces(fin)
+                        if len(class_stack) == 0:
+                            ''' function declaration or defintion is not a member of a class '''
+                            c = read1(fin)
+                            if c == ';':
+                                ''' non class member function declaration '''
+                                pass
+                            elif c == '{':
+                                ''' non class member function definition '''
+                                inner_block_count = 1
+                                while inner_block_count != 0:
+                                    c = read1(fin)
+                                    if c == '{':
+                                        inner_block_count += 1
+                                    elif c == '}':
+                                        inner_block_count -= 1
+
+                        elif len(class_stack) > 0:
+                            ''' function declaration or definition is a member of a class '''
+                            print(function_name, function_params)
+
+                            c = read1(fin)
+                            if c == ';':
+                                ''' member function declaration '''
+                            
+                            elif c == '{':
+                                ''' member function definition '''
+                                curpos = getcurpos(fin)
+                                inner_block_count = 1
+                                while inner_block_count != 0:
+                                    c = read1(fin)
+                                    if c == '{':
+                                        inner_block_count += 1
+                                    elif c == '}':
+                                        inner_block_count -= 1
+
+                    elif c == ':':
                         ''' word: '''
                         c = peek1(fin)
                         if c == ':':
                             ''' word:: '''
                             stackpush(fin, namespace_stack, word)
-                            push_count = 1
+                            double_colon_push_count = 1
                             while True:
+                                ''' loop to capture namespace colons '''
+                                ''' word::word::word::word '''
                                 skipwhitespaces(fin)
-                                c = read1(fin)
-                                
-                                if c == ';':
-                                    ''' word::word::word; '''
-                                    stackpopN(fin,namespace_stack, push_count)
-                                    break
-
-                                elif c == '(':
-                                    function_params = '('
-                                    param_count = 1
-                                    while param_count != 0:
-                                        c = read1(fin)
-                                        function_params += c
-                                        if c == '(':
-                                            param_count += 1
-                                        elif c == ')':
-                                            param_count -= 1
-                                    skipwhitespaces(fin)
-                                    c = read1(fin)
-                                    
-                                    if c == ';':
-                                        ''' word::word::word(...);
-                                            Function being declared but with namespace colons
-                                            That is function being declared outside the class
-                                            But such a case shouldn't be possible ... '''
-                                        print('Warning: Undefined case 1 encountered.')
-                                        exit(1)
-
-                                    elif c == '{':
-                                        ''' word::word::word(...) { ... '''
-                                        if len(class_stack) > 0:
-                                            ''' function is being declared with namespace colons
-                                                but this is happening inside a class block
-                                                But such a case shouldn't be possible ... '''
-                                            print('Warning: Undefined case 2 encountered.')
-                                            exit(1)
-                                        
-                                        elif len(class_stack) == 0:
-                                            ''' function is being declared with namespace colons
-                                                but this is happening inside a class block '''
-                                            function_name = stackpop(fin, namespace_stack)
-                                            push_count -= 1
-                                            inner_block_count = 1
-                                            curpos = getcurpos(fin)
-
-
-                                    elif c == ':':
-                                        c = peek1(fin)
-                                        if c == ':':
-                                            ''' word:: '''
-                                            skip1(fin)
-                                            skipwhitespaces(fin)
-                                            c = peek1(fin)
-                                            if not isalpha(c):
-                                                ''' word::<not word> '''
-                                                print('Warning: Undefined case 3 encountered.')
-                                                exit(1)
-                                            word = extract_word(fin)
-                                            stackpush(fin, namespace_stack, word)
-                                            push_count += 1
-
-                                        else:
-                                            ''' word : '''
-                                            print('Warning: Undefined case 4 encountered.')
-                                            exit(1)
+                                c = peek1(fin)
+                                if c == ':':
+                                    read1(fin)
+                                    c = peek1(fin)
+                                    if c == ':':
+                                        read1(fin)
+                                        word = extract_word(fin)
+                                        stackpush(fin, namespace_stack, word)
+                                        double_colon_push_count += 1
+                                    else:
+                                        break
